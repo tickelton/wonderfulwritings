@@ -9,3 +9,4 @@ Session.vim
 .coverage
 build
 contrib
+venv
