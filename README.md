@@ -24,3 +24,8 @@ How do you use it ?
 * get api keys
 * configure accounts and keys in twot.ini
 * run twot via commandline or cron job
+
+Dependencies
+------------
+
+`apt-get install libffi-dev libssl-dev`
