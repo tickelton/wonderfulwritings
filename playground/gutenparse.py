@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import random
 import xml.etree.ElementTree as ET
@@ -31,38 +32,65 @@ def get_bookdata_from_xml(root):
     for ebook in root.findall('pgterms:ebook', ns):
         for title in ebook.findall('dcterms:title', ns):
             ret['title'] += title.text
-        for edt in ebook.findall('marcrel:edt', ns):
-            # TODO: author's names can also be contained in other sections
+        for edt in ebook.findall('dcterms:creator', ns):
             for agent in edt.findall('pgterms:agent', ns):
                 for name in agent.findall('pgterms:name', ns):
                     ret['author'] += name.text
+        if not ret['author']:
+            for edt in ebook.findall('marcrel:edt', ns):
+                for agent in edt.findall('pgterms:agent', ns):
+                    for name in agent.findall('pgterms:name', ns):
+                        ret['author'] += name.text
+    if not ret['author']:
+        for agent in root.findall('pgterms:agent', ns):
+            for name in agent.findall('pgterms:name', ns):
+                ret['author'] += name.text
 
     return ret
 
 
-def main():
+def main(argv):
     ret = 0
+    loop = 0
+    again = 1
 
-    bookid = get_random_id()
+    if len(argv) != 2:
+        bookid = get_random_id()
+    elif argv[1] == 'loop':
+        loop = 1
+        bookid = 1
+    else:
+        bookid = argv[1]
 
-    print "bookid=\"{}\"".format(bookid)
+    while(again):
+        again -= 1
 
-    rdf_file = file_from_id(bookid)
+        print "bookid=\"{}\"".format(bookid)
 
-    tree = ET.parse(rdf_file)
-    root = tree.getroot()
-    bookdata = get_bookdata_from_xml(root)
+        rdf_file = file_from_id(bookid)
+        print rdf_file
+        if os.access(rdf_file, os.F_OK):
+            tree = ET.parse(rdf_file)
+            root = tree.getroot()
+            bookdata = get_bookdata_from_xml(root)
 
-    print "title=\"{}\"\n author=\"{}\"".format(
-        bookdata['title'], bookdata['author']
-    )
+            print "title=\"{}\"\n author=\"{}\"".format(
+                bookdata['title'].encode('ascii', 'ignore'),
+                bookdata['author'].encode('ascii', 'ignore')
+            )
 
-    url = GUTENBERG_BASE_USL + '{}'.format(bookid)
+            url = GUTENBERG_BASE_USL + '{}'.format(bookid)
 
-    print "url=\"{}\"".format(url)
+            print "url=\"{}\"".format(url)
+        else:
+            print "{} no such file or directory.".format(rdf_file)
+
+        if(loop):
+            bookid += 1
+            again = 1
 
     sys.exit(ret)
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
