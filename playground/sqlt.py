@@ -9,6 +9,7 @@ c = conn.cursor()
 c.execute('''
   CREATE  TABLE "main"."twot_data" (
       "id" INTEGER PRIMARY KEY  AUTOINCREMENT  NOT NULL  UNIQUE ,
+      "gtb_id" INTEGER NOT NULL,
       "title" TEXT NOT NULL ,
       "author" TEXT NOT NULL ,
       "rating" FLOAT NOT NULL  DEFAULT 0.0,
