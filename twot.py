@@ -1,11 +1,31 @@
 #!/usr/bin/env python
 
+import getopt
 import os
 import sys
 import sqlite3
 import xml.etree.ElementTree as ET
 
 GUTENBERG_BASE_USL = 'http://www.gutenberg.org/ebooks/'
+ERR_TRACE = 3
+ERR_DEBUG = 2
+ERR_WARNING = 1
+ERR_ERROR = 0
+twot_cmds = ('populate',)
+opt = {}
+
+
+def DEBUG(level, dbg_str):
+    if opt['verbose'] >= level:
+        print dbg_str
+
+
+def usage():
+    print "Usage:\n"
+
+
+def version():
+    print "Version:\n"
 
 
 def file_from_id(bookid):
@@ -63,7 +83,7 @@ def get_max_id(ids):
     return maxid
 
 
-def main(argv):
+def populate():
     ret = 0
     bookid = 1
 
@@ -81,34 +101,35 @@ def main(argv):
             bookid += 1
             continue
 
-        # print "bookid=\"{}\"".format(bookid)
+        DEBUG(ERR_TRACE, "bookid=\"{}\"".format(bookid))
 
         rdf_file = file_from_id(bookid)
-        # print rdf_file
+        DEBUG(ERR_TRACE, rdf_file)
         if os.access(rdf_file, os.F_OK):
             tree = ET.parse(rdf_file)
             root = tree.getroot()
             bookdata = get_bookdata_from_xml(root)
+            url = GUTENBERG_BASE_USL + '{}'.format(bookid)
 
-            # print "title=\"{}\"\n author=\"{}\"".format(
-            #     bookdata['title'].encode('ascii', 'ignore'),
-            #     bookdata['author'].encode('ascii', 'ignore')
-            # )
+            DEBUG(ERR_TRACE,  "title=\"{}\"\n author=\"{}\" url=\"{}\"".format(
+                bookdata['title'].encode('ascii', 'ignore'),
+                bookdata['author'].encode('ascii', 'ignore'),
+                url
+                )
+            )
 
             c.execute(
                 """
-INSERT INTO "twot_data" (gtb_id, title, author) VALUES (
-  ?,?,?
+INSERT INTO "twot_data" (gtb_id, title, author, url_gtb) VALUES (
+  ?,?,?,?
 )
-""", (bookid, bookdata['title'], bookdata['author'])
+""", (bookid, bookdata['title'], bookdata['author'], url)
             )
 
-            url = GUTENBERG_BASE_USL + '{}'.format(bookid)
-
-            # print "url=\"{}\"".format(url)
+            DEBUG(ERR_TRACE, "url=\"{}\"".format(url))
         else:
+            DEBUG(ERR_TRACE, "{} no such file or directory.".format(rdf_file))
             pass
-            # print "{} no such file or directory.".format(rdf_file)
 
         conn.commit()
 
@@ -116,8 +137,57 @@ INSERT INTO "twot_data" (gtb_id, title, author) VALUES (
 
     conn.close()
 
-    sys.exit(ret)
+    return ret
 
+
+def parse_args(argv):
+    try:
+        opts, args = getopt.getopt(
+            argv[1:], "hv", ["help", "version"]
+        )
+    except getopt.GetoptError as err:
+        print str(err)
+        usage()
+        sys.exit(1)
+
+    conf = {
+        'verbose': 0,
+        'cmd': '',
+    }
+
+    for opt, arg in opts:
+        if opt == '-v':
+            conf['verbose'] += 1
+        elif opt in ("-h", "--help"):
+            usage()
+            sys.exit(0)
+        elif opt == "--version":
+            version()
+            sys.exit(0)
+
+    if len(args) != 1:
+        usage()
+        sys.exit(1)
+
+    if not args[0] in twot_cmds:
+        usage()
+        sys.exit(1)
+    else:
+        conf['cmd'] = args[0]
+
+    return conf
+
+
+def main(argv):
+    global opt
+    ret = 0
+
+    opt = parse_args(argv)
+
+    if opt['cmd'] == 'populate':
+        populate()
+
+    sys.exit(ret)
 
 if __name__ == '__main__':
     main(sys.argv)
