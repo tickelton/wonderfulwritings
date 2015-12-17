@@ -5,13 +5,18 @@ import os
 import sys
 import sqlite3
 import xml.etree.ElementTree as ET
+import wikipedia
+
 
 GUTENBERG_BASE_USL = 'http://www.gutenberg.org/ebooks/'
 ERR_TRACE = 3
 ERR_DEBUG = 2
 ERR_WARNING = 1
 ERR_ERROR = 0
-twot_cmds = ('populate',)
+twot_cmds = (
+    'populate',
+    'wikipedia',
+)
 opt = {}
 
 
@@ -91,7 +96,6 @@ def populate():
     max_id = get_max_id(gtb_ids)
 
     conn = sqlite3.connect('/media/ramdisk/example.db')
-
     c = conn.cursor()
 
     while True:
@@ -140,6 +144,38 @@ INSERT INTO "twot_data" (gtb_id, title, author, url_gtb) VALUES (
     return ret
 
 
+def get_wkp():
+    conn = sqlite3.connect('/media/ramdisk/example.db')
+    c = conn.cursor()
+
+    c.execute('SELECT id FROM twot_data')
+    ids =  c.fetchall()
+    for key_id in ids:
+        c.execute('SELECT id, gtb_id, title FROM twot_data WHERE id= ?',
+                  (key_id[0],))
+        row = c.fetchone()
+        DEBUG(ERR_TRACE, "get_wkp: {}".format(
+                row[2].encode('ascii', 'ignore')))
+
+        search_res = wikipedia.search(row[2].encode('ascii', 'ignore'))
+        if search_res:
+            page = wikipedia.page(search_res[0])
+            summary = page.summary.encode('ascii', 'ignore')
+            url = page.url
+            DEBUG(ERR_TRACE,"get_wkp: summary={}, rul={}".format(
+                    summary, url))
+            c.execute("""
+UPDATE twot_data
+  SET summary = ? , url_wkp = ?
+  WHERE id = ?
+""", (summary, url, row[0])
+            )
+            conn.commit()
+
+    conn.commit()
+    conn.close()
+
+
 def parse_args(argv):
     try:
         opts, args = getopt.getopt(
@@ -186,6 +222,8 @@ def main(argv):
 
     if opt['cmd'] == 'populate':
         populate()
+    elif opt['cmd'] == 'wikipedia':
+        get_wkp()
 
     sys.exit(ret)
 
