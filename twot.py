@@ -151,15 +151,26 @@ def get_wkp():
     c.execute('SELECT id FROM twot_data')
     ids =  c.fetchall()
     for key_id in ids:
+        if key_id[0] < 2346:
+            continue
         c.execute('SELECT id, gtb_id, title FROM twot_data WHERE id= ?',
                   (key_id[0],))
         row = c.fetchone()
         DEBUG(ERR_TRACE, "get_wkp: {}".format(
                 row[2].encode('ascii', 'ignore')))
 
-        search_res = wikipedia.search(row[2].encode('ascii', 'ignore'))
+        try:
+            search_res = wikipedia.search(row[2].encode('ascii', 'ignore'))
+        except wikipedia.exceptions.WikipediaException:
+            continue
         if search_res:
-            page = wikipedia.page(search_res[0])
+            try:
+                page = wikipedia.page(search_res[0])
+            except wikipedia.exceptions.DisambiguationError:
+                continue
+            except wikipedia.exceptions.PageError:
+                continue
+
             summary = page.summary.encode('ascii', 'ignore')
             url = page.url
             DEBUG(ERR_TRACE,"get_wkp: summary={}, rul={}".format(
