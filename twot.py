@@ -151,8 +151,6 @@ def get_wkp():
     c.execute('SELECT id FROM twot_data')
     ids =  c.fetchall()
     for key_id in ids:
-        if key_id[0] < 2346:
-            continue
         c.execute('SELECT id, gtb_id, title FROM twot_data WHERE id= ?',
                   (key_id[0],))
         row = c.fetchone()
