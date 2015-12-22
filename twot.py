@@ -6,6 +6,7 @@ import sys
 import sqlite3
 import xml.etree.ElementTree as ET
 import wikipedia
+import amazonproduct
 
 
 GUTENBERG_BASE_USL = 'http://www.gutenberg.org/ebooks/'
@@ -16,6 +17,7 @@ ERR_ERROR = 0
 twot_cmds = (
     'populate',
     'wikipedia',
+    'asin',
 )
 opt = {}
 
@@ -185,6 +187,54 @@ UPDATE twot_data
     conn.close()
 
 
+def get_asin():
+    azn_api = amazonproduct.API(locale='us')
+
+    conn = sqlite3.connect('/media/ramdisk/example.db')
+    c = conn.cursor()
+
+    c.execute('SELECT id FROM twot_data')
+    ids =  c.fetchall()
+    for key_id in ids:
+        if key_id[0] < 182:
+            continue
+        print key_id[0]
+
+        c.execute('SELECT id, title FROM twot_data WHERE id= ?',
+                  (key_id[0],))
+        row = c.fetchone()
+        DEBUG(ERR_TRACE, "get_azn: {}".format(
+                row[1].encode('ascii', 'ignore')))
+
+        try:
+            results = azn_api.item_search(
+                'Books',
+                Title=row[1].encode('ascii', 'ignore'),
+                Condition='New',
+                Availability='Available',
+                IncludeReviewsSummary='Yes')
+        except amazonproduct.errors.NoExactMatchesFound:
+            continue
+        except amazonproduct.errors.AWSError:
+            continue
+
+        for item in results:
+            if item.ASIN:
+                # DEBUG(ERR_TRACE, "found ASIN={} for title'{}'".format(
+                #     item.ASIN, item.ItemAttributes.Title))
+                c.execute("""
+UPDATE twot_data
+  SET asin = ?, url_azn = ?
+  WHERE id = ?
+""", (str(item.ASIN), str(item.DetailPageURL), row[0])
+                )
+                conn.commit()
+                break
+
+    conn.commit()
+    conn.close()
+
+
 def parse_args(argv):
     try:
         opts, args = getopt.getopt(
@@ -233,6 +283,8 @@ def main(argv):
         populate()
     elif opt['cmd'] == 'wikipedia':
         get_wkp()
+    elif opt['cmd'] == 'asin':
+        get_asin()
 
     sys.exit(ret)
 
