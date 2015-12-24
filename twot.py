@@ -5,11 +5,14 @@ import os
 import sys
 import sqlite3
 import xml.etree.ElementTree as ET
+import re
+import httplib
 import wikipedia
 import amazonproduct
 
 
 GUTENBERG_BASE_USL = 'http://www.gutenberg.org/ebooks/'
+STARS_URL = '/gp/customer-reviews/widgets/average-customer-review/popover/ref=dpx_acr_pop_?contextId=dpx&asin={}'
 ERR_TRACE = 3
 ERR_DEBUG = 2
 ERR_WARNING = 1
@@ -18,6 +21,7 @@ twot_cmds = (
     'populate',
     'wikipedia',
     'asin',
+    'stars',
 )
 opt = {}
 
@@ -231,6 +235,74 @@ UPDATE twot_data
     conn.close()
 
 
+def get_stars():
+    conn = sqlite3.connect('/media/ramdisk/example.db')
+    c = conn.cursor()
+
+    c.execute('SELECT id FROM twot_data')
+    ids =  c.fetchall()
+    for key_id in ids:
+        if key_id[0] < 3:
+            continue
+        print key_id[0]
+        c.execute('SELECT id, asin FROM twot_data WHERE id= ?',
+              (key_id[0],))
+        row = c.fetchone()
+        if row[1] == '-':
+            continue
+        DEBUG(ERR_TRACE, "get_stars: {}".format(row[1]))
+
+        http_conn = httplib.HTTPSConnection("www.amazon.com")
+        http_conn.request("GET", STARS_URL.format(row[1]))
+        r1 = http_conn.getresponse()
+        if r1.status == 200:
+            data = r1.read()
+            result = re.search(r'(\d\.?\d{0,1}) out of 5 stars', data)
+            stars_avg = float(result.group(1))
+            result = re.search(r'See all (\d+) reviews', data)
+            if not result:
+                if re.search(r'See both reviews', data):
+                    total_reviews = 2
+            else:
+                total_reviews = int(result.group(1))
+            result = re.search(r'5 stars represent (\d{1,3})% of rating', data)
+            if result:
+                pct_5 = int(result.group(1))
+            else:
+                pct_5 = 0
+            result = re.search(r'4 stars represent (\d{1,3})% of rating', data)
+            if result:
+                pct_4 = int(result.group(1))
+            else:
+                pct_4 = 0
+            result = re.search(r'3 stars represent (\d{1,3})% of rating', data)
+            if result:
+                pct_3 = int(result.group(1))
+            else:
+                pct_3 = 0
+            result = re.search(r'2 stars represent (\d{1,3})% of rating', data)
+            if result:
+                pct_2 = int(result.group(1))
+            else:
+                pct_2 = 0
+            result = re.search(r'1 stars represent (\d{1,3})% of rating', data)
+            if result:
+                pct_1 = int(result.group(1))
+            else:
+                pct_1 = 0
+
+            c.execute("""
+UPDATE twot_data
+  SET rating = ?, count_1 = ?, count_2 = ?, count_3 = ?,
+      count_4 = ?, count_5 = ?, count_all = ?
+  WHERE id = ?
+""", (stars_avg, pct_1, pct_2, pct_3, pct_4, pct_5, total_reviews, row[0])
+            )
+            conn.commit()
+
+    conn.commit()
+    conn.close()
+
 def parse_args(argv):
     try:
         opts, args = getopt.getopt(
@@ -281,6 +353,8 @@ def main(argv):
         get_wkp()
     elif opt['cmd'] == 'asin':
         get_asin()
+    elif opt['cmd'] == 'stars':
+        get_stars()
 
     sys.exit(ret)
 
