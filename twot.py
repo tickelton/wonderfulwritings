@@ -242,9 +242,6 @@ def get_stars():
     c.execute('SELECT id FROM twot_data')
     ids =  c.fetchall()
     for key_id in ids:
-        if key_id[0] < 3:
-            continue
-        print key_id[0]
         c.execute('SELECT id, asin FROM twot_data WHERE id= ?',
               (key_id[0],))
         row = c.fetchone()
