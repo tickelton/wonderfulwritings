@@ -17,7 +17,7 @@ ERR_TRACE = 3
 ERR_DEBUG = 2
 ERR_WARNING = 1
 ERR_ERROR = 0
-twot_cmds = (
+ww_cmds = (
     'populate',
     'wikipedia',
     'asin',
@@ -130,7 +130,7 @@ def populate():
 
             c.execute(
                 """
-INSERT INTO "twot_data" (gtb_id, title, author, url_gtb) VALUES (
+INSERT INTO "ww_data" (gtb_id, title, author, url_gtb) VALUES (
   ?,?,?,?
 )
 """, (bookid, bookdata['title'], bookdata['author'], url)
@@ -154,10 +154,10 @@ def get_wkp():
     conn = sqlite3.connect('/media/ramdisk/example.db')
     c = conn.cursor()
 
-    c.execute('SELECT id FROM twot_data')
+    c.execute('SELECT id FROM ww_data')
     ids =  c.fetchall()
     for key_id in ids:
-        c.execute('SELECT id, gtb_id, title FROM twot_data WHERE id= ?',
+        c.execute('SELECT id, gtb_id, title FROM ww_data WHERE id= ?',
                   (key_id[0],))
         row = c.fetchone()
         DEBUG(ERR_TRACE, "get_wkp: {}".format(
@@ -180,7 +180,7 @@ def get_wkp():
             DEBUG(ERR_TRACE,"get_wkp: summary={}, rul={}".format(
                     summary, url))
             c.execute("""
-UPDATE twot_data
+UPDATE ww_data
   SET summary = ? , url_wkp = ?
   WHERE id = ?
 """, (summary, url, row[0])
@@ -197,10 +197,10 @@ def get_asin():
     conn = sqlite3.connect('/media/ramdisk/example.db')
     c = conn.cursor()
 
-    c.execute('SELECT id FROM twot_data')
+    c.execute('SELECT id FROM ww_data')
     ids =  c.fetchall()
     for key_id in ids:
-        c.execute('SELECT id, title FROM twot_data WHERE id= ?',
+        c.execute('SELECT id, title FROM ww_data WHERE id= ?',
                   (key_id[0],))
         row = c.fetchone()
         DEBUG(ERR_TRACE, "get_azn: {}".format(
@@ -223,7 +223,7 @@ def get_asin():
                 # DEBUG(ERR_TRACE, "found ASIN={} for title'{}'".format(
                 #     item.ASIN, item.ItemAttributes.Title))
                 c.execute("""
-UPDATE twot_data
+UPDATE ww_data
   SET asin = ?, url_azn = ?
   WHERE id = ?
 """, (str(item.ASIN), str(item.DetailPageURL), row[0])
@@ -239,10 +239,10 @@ def get_stars():
     conn = sqlite3.connect('/media/ramdisk/example.db')
     c = conn.cursor()
 
-    c.execute('SELECT id FROM twot_data')
+    c.execute('SELECT id FROM ww_data')
     ids =  c.fetchall()
     for key_id in ids:
-        c.execute('SELECT id, asin FROM twot_data WHERE id= ?',
+        c.execute('SELECT id, asin FROM ww_data WHERE id= ?',
               (key_id[0],))
         row = c.fetchone()
         if row[1] == '-':
@@ -289,7 +289,7 @@ def get_stars():
                 pct_1 = 0
 
             c.execute("""
-UPDATE twot_data
+UPDATE ww_data
   SET rating = ?, count_1 = ?, count_2 = ?, count_3 = ?,
       count_4 = ?, count_5 = ?, count_all = ?
   WHERE id = ?
@@ -329,7 +329,7 @@ def parse_args(argv):
         usage()
         sys.exit(1)
 
-    if not args[0] in twot_cmds:
+    if not args[0] in ww_cmds:
         usage()
         sys.exit(1)
     else:
